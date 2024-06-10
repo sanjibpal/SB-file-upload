@@ -1,0 +1,64 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.3.0'
+	id 'io.spring.dependency-management' version '1.1.5'
+	id 'com.palantir.docker' version "0.35.0"
+}
+
+group = 'com.charter'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+allprojects {
+	apply plugin: 'org.springframework.boot'
+	apply plugin: "io.spring.dependency-management"
+	apply plugin: 'java'
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		implementation 'org.springframework.boot:spring-boot-starter-webflux'
+		implementation 'org.springframework.boot:spring-boot-starter-validation'
+		implementation 'org.springframework.boot:spring-boot-starter-security'
+		implementation 'org.springframework.boot:spring-boot-starter-batch'
+		// Spring Batch 5.0 does not support in mem store, so need to use H2 to store the batch tables.
+		implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+		runtimeOnly 'com.h2database:h2' // Using H2 database for simplicity
+
+		// Retry
+		implementation 'org.springframework.retry:spring-retry'
+		implementation 'org.springframework:spring-aspects'
+
+		// Swagger
+		implementation "org.springdoc:springdoc-openapi-starter-webflux-ui:2.0.4"
+
+		// Lombok
+		compileOnly 'org.projectlombok:lombok'
+		annotationProcessor 'org.projectlombok:lombok'
+
+		// Jwt - TODO
+		implementation "io.jsonwebtoken:jjwt-api:0.11.1"
+		runtimeOnly "io.jsonwebtoken:jjwt-impl:0.11.1"
+
+		testImplementation 'org.springframework.boot:spring-boot-starter-test'
+		testImplementation 'io.projectreactor:reactor-test'
+		testImplementation 'org.mockito:mockito-core'
+		testImplementation 'org.mockito:mockito-junit-jupiter'
+		testImplementation 'org.springframework.batch:spring-batch-test'
+	}
+
+	tasks.named('test') {
+		useJUnitPlatform()
+	}
+}

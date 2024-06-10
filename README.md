@@ -31,7 +31,7 @@ $ ./gradlew clean :engine:build :engine:docker
 ## Running the Application
 To run in your local
 ```
-$ java -jar -Dhostname=localhost ./engine/build/libs/engine-0.0.1-SNAPSHOT.jar
+$ java -jar -Dhostname=localhost ./engine/build/libs/engine.jar
 ```
 
 ### Related Documentations
