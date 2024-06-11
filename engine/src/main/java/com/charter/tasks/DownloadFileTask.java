@@ -66,6 +66,7 @@ public class DownloadFileTask implements Tasklet {
         HttpURLConnection httpURLConnection = null;
         try {
             httpURLConnection = (HttpURLConnection) url.openConnection();
+            log.info("Connection opened {}", httpURLConnection);
         } catch(FileNotFoundException e) {
             log.error("Download Fail: {} with error {}", urlPath, e);
             throw new FileNotFoundException("Download Fail: " + urlPath);
@@ -75,12 +76,11 @@ public class DownloadFileTask implements Tasklet {
         if (responseCode != HttpURLConnection.HTTP_PARTIAL && responseCode != HttpURLConnection.HTTP_OK) {
             httpURLConnection.disconnect();
             log.error("Failed to download {} - {}", urlPath, responseCode);
-            throw new FileNotFoundException("Failed to download with response code " + responseCode);
+            throw new IOException("Failed to download with response code " + responseCode);
         }
 
         try(RandomAccessFile file = new RandomAccessFile(fileDownloadPath, "rw")) {
             long fileSize = 0;
-            long bytesReadCount = 0; // display console status
             if (file.length() > 0) {
                 fileSize = file.length();
                 httpURLConnection.setRequestProperty("Range", "bytes=" + fileSize + "-");
@@ -93,15 +93,10 @@ public class DownloadFileTask implements Tasklet {
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     file.write(buffer, 0, bytesRead);
                 }
-                bytesReadCount+=4096;
-                if(fileSize<=bytesReadCount) {
-                    log.info("Final Bytes read {} of {}", (bytesReadCount-fileSize), fileSize);
-                } else {
-                    log.info("Bytes read {} of {}", bytesReadCount, fileSize);
-                }
-            } finally {
-                httpURLConnection.disconnect();
             }
+        } finally {
+            httpURLConnection.disconnect();
+            log.info("Connection disconnected.");
         }
     }
 }
