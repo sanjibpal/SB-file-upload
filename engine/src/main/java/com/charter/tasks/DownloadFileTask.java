@@ -41,7 +41,7 @@ public class DownloadFileTask implements Tasklet {
         Assert.hasLength(urlPath, "Url path is empty.");
         retryTemplate.execute(context -> {
             try {
-                download(urlPath);
+                download(urlPath, fileDownloadPath);
             } catch (FileNotFoundException e) {
                 log.error(e.getMessage());
                 // No need retrying
@@ -58,17 +58,26 @@ public class DownloadFileTask implements Tasklet {
 
     /**
      * Downloads the file with the ability to resume the download if interrupted.
-     * @param urlPath
-     * @throws IOException
+     * @param urlPath download url
+     * @throws IOException FileNotFoundException will stop the retry
      */
-    private void download(String urlPath) throws IOException{
+    public void download(String urlPath, String fileDownloadPath) throws IOException{
         URL url = new URL(urlPath);
         HttpURLConnection httpURLConnection = null;
         try {
             httpURLConnection = (HttpURLConnection) url.openConnection();
         } catch(FileNotFoundException e) {
+            log.error("Download Fail: {} with error {}", urlPath, e);
             throw new FileNotFoundException("Download Fail: " + urlPath);
         }
+
+        int responseCode = httpURLConnection.getResponseCode();
+        if (responseCode != HttpURLConnection.HTTP_PARTIAL && responseCode != HttpURLConnection.HTTP_OK) {
+            httpURLConnection.disconnect();
+            log.error("Failed to download {} - {}", urlPath, responseCode);
+            throw new FileNotFoundException("Failed to download with response code " + responseCode);
+        }
+
         try(RandomAccessFile file = new RandomAccessFile(fileDownloadPath, "rw")) {
             long fileSize = 0;
             long bytesReadCount = 0; // display console status
@@ -78,27 +87,21 @@ public class DownloadFileTask implements Tasklet {
                 file.seek(fileSize);
             }
 
-            int responseCode = httpURLConnection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_PARTIAL || responseCode == HttpURLConnection.HTTP_OK) {
-                try (InputStream inputStream = httpURLConnection.getInputStream()) {
-                    byte[] buffer = new byte[4096];
-                    int bytesRead;
-                    while ((bytesRead = inputStream.read(buffer)) != -1) {
-                        file.write(buffer, 0, bytesRead);
-                    }
-                    bytesReadCount+=4096;
-                    if(fileSize<=bytesReadCount) {
-                        log.info("Final Bytes read {} of {}", (bytesReadCount-fileSize), fileSize);
-                    } else {
-                        log.info("Bytes read {} of {}", bytesReadCount, fileSize);
-                    }
+            try (InputStream inputStream = httpURLConnection.getInputStream()) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    file.write(buffer, 0, bytesRead);
                 }
-            } else {
-                log.error("Failed to download {} - {}", urlPath, responseCode);
-                throw new IOException("Failed to download with response code " + responseCode);
+                bytesReadCount+=4096;
+                if(fileSize<=bytesReadCount) {
+                    log.info("Final Bytes read {} of {}", (bytesReadCount-fileSize), fileSize);
+                } else {
+                    log.info("Bytes read {} of {}", bytesReadCount, fileSize);
+                }
+            } finally {
+                httpURLConnection.disconnect();
             }
         }
-
-        httpURLConnection.disconnect();
     }
 }
